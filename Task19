@@ -35,24 +35,49 @@ public class MyTreeMap<K, V> where K : IComparable<K>
 
     public MyTreeMap(IComparer<K> comp)
     {
-        comparator = (comp != null) ? comp : Comparer<K>.Default;
+        if (comp != null)
+        {
+            comparator = comp;
+        }
+        else
+        {
+            comparator = Comparer<K>.Default;
+        }
         size = 0;
     }
 
-    public bool IsEmpty() => size == 0;
-    public int Size() => size;
-    public void Clear() { root = null; size = 0; }
+    public bool IsEmpty()
+    {
+        return size == 0;
+    }
+
+    public int Size()
+    {
+        return size;
+    }
+
+    public void Clear()
+    {
+        root = null;
+        size = 0;
+    }
 
     private bool IsRed(Node x)
     {
-        if (x == null) return false;
+        if (x == null)
+        {
+            return false;
+        }
         return x.Color == RED;
     }
 
     // Проверка ключа
     public bool ContainsKey(object key)
     {
-        if (key is K k) return FindNode(k) != null;
+        if (key is K k)
+        {
+            return FindNode(k) != null;
+        }
         return false;
     }
 
@@ -62,16 +87,22 @@ public class MyTreeMap<K, V> where K : IComparable<K>
         if (key is K k)
         {
             Node node = FindNode(k);
-            if (node != null) return node.Value;
+            if (node != null)
+            {
+                return node.Value;
+            }
         }
         return default(V);
     }
 
     public void Put(K key, V value)
     {
-        if (key == null) throw new ArgumentNullException("Key is null");
+        if (key == null)
+        {
+            throw new ArgumentNullException("Key is null");
+        }
         root = PutNode(root, key, value);
-        root.Color = BLACK;
+        root.Color = BLACK; // Правило 1: Корень всегда черный
     }
 
     private Node PutNode(Node h, K key, V value)
@@ -79,25 +110,55 @@ public class MyTreeMap<K, V> where K : IComparable<K>
         if (h == null)
         {
             size++;
-            return new Node(key, value, RED);
+            return new Node(key, value, RED); // Новые узлы всегда красные
         }
 
         int cmp = comparator.Compare(key, h.Key);
-        if (cmp < 0) h.Left = PutNode(h.Left, key, value);
-        else if (cmp > 0) h.Right = PutNode(h.Right, key, value);
-        else h.Value = value;
+        if (cmp < 0)
+        {
+            h.Left = PutNode(h.Left, key, value);
+        }
+        else if (cmp > 0)
+        {
+            h.Right = PutNode(h.Right, key, value);
+        }
+        else
+        {
+            h.Value = value;
+        }
 
-        if (IsRed(h.Right) && !IsRed(h.Left)) h = RotateLeft(h);
-        if (IsRed(h.Left) && IsRed(h.Left.Left)) h = RotateRight(h);
-        if (IsRed(h.Left) && IsRed(h.Right)) FlipColors(h);
+        // Правило LL RB (Left-Leaning): Красные связи должны быть наклонены влево
+        if (IsRed(h.Right) && !IsRed(h.Left))
+        {
+            h = RotateLeft(h);
+        }
+
+        // Правило 4: Никакой красный узел не имеет красного родителя (запрет на две красные подряд)
+        // Правило 5: При появлении двух красных связей влево чиним поворотом
+        if (IsRed(h.Left) && IsRed(h.Left.Left))
+        {
+            h = RotateRight(h);
+        }
+
+        // Правило 4: Запрет на два красных ребенка у одного узла
+        if (IsRed(h.Left) && IsRed(h.Right))
+        {
+            FlipColors(h); // Правило 3: Все листья (null) черные (обеспечивается структурой)
+        }
 
         return h;
     }
 
     public bool Remove(object key)
     {
-        if (!(key is K k)) return false;
-        if (!ContainsKey(k)) return false; 
+        if (!(key is K k))
+        {
+            return false;
+        }
+        if (!ContainsKey(k))
+        {
+            return false;
+        }
 
         if (!IsRed(root.Left) && !IsRed(root.Right))
         {
@@ -107,7 +168,10 @@ public class MyTreeMap<K, V> where K : IComparable<K>
         root = Delete(root, k);
         size--;
 
-        if (!IsEmpty()) root.Color = BLACK; 
+        if (!IsEmpty())
+        {
+            root.Color = BLACK; // Правило 1: Корень всегда черный
+        }
         return true;
     }
 
@@ -153,13 +217,16 @@ public class MyTreeMap<K, V> where K : IComparable<K>
                 h.Right = Delete(h.Right, key);
             }
         }
-        return Balance(h); 
+        return Balance(h);
     }
 
     // Специальный метод для удаления минимума 
     private Node DeleteMin(Node h)
     {
-        if (h.Left == null) return null;
+        if (h.Left == null)
+        {
+            return null;
+        }
 
         if (!IsRed(h.Left) && !IsRed(h.Left.Left))
         {
@@ -199,9 +266,23 @@ public class MyTreeMap<K, V> where K : IComparable<K>
     // Общий метод балансировки (вызывается после каждого удаления)
     private Node Balance(Node h)
     {
-        if (IsRed(h.Right)) h = RotateLeft(h);
-        if (IsRed(h.Left) && IsRed(h.Left.Left)) h = RotateRight(h);
-        if (IsRed(h.Left) && IsRed(h.Right)) FlipColors(h);
+        // Правило LL RB: Красные связи должны быть наклонены влево
+        if (IsRed(h.Right))
+        {
+            h = RotateLeft(h);
+        }
+
+        // Правило 4: Запрет на две красные подряд в левой части
+        if (IsRed(h.Left) && IsRed(h.Left.Left))
+        {
+            h = RotateRight(h);
+        }
+
+        // Правило 4: Запрет на два красных ребенка
+        if (IsRed(h.Left) && IsRed(h.Right))
+        {
+            FlipColors(h); // Правило 3: Листья черные 
+        }
         return h;
     }
 
@@ -234,7 +315,6 @@ public class MyTreeMap<K, V> where K : IComparable<K>
     }
 
     // Инвертированный FlipColors (нужен при удалении для сдвига цветов)
-
     private void FlipColorsInvert(Node h)
     {
         h.Color = !h.Color;
@@ -249,86 +329,175 @@ public class MyTreeMap<K, V> where K : IComparable<K>
         while (current != null)
         {
             int res = comparator.Compare(key, current.Key);
-            if (res < 0) current = current.Left;
-            else if (res > 0) current = current.Right;
-            else return current;
+            if (res < 0)
+            {
+                current = current.Left;
+            }
+            else if (res > 0)
+            {
+                current = current.Right;
+            }
+            else
+            {
+                return current;
+            }
         }
         return null;
     }
 
     private Node GetMinNode(Node node)
     {
-        if (node == null) return null;
-        while (node.Left != null) node = node.Left;
+        if (node == null)
+        {
+            return null;
+        }
+        while (node.Left != null)
+        {
+            node = node.Left;
+        }
         return node;
     }
 
     private Node GetMaxNode(Node node)
     {
-        if (node == null) return null;
-        while (node.Right != null) node = node.Right;
+        if (node == null)
+        {
+            return null;
+        }
+        while (node.Right != null)
+        {
+            node = node.Right;
+        }
         return node;
     }
 
     public K FirstKey()
     {
-        if (root == null) throw new InvalidOperationException("Empty");
+        if (root == null)
+        {
+            throw new InvalidOperationException("Empty");
+        }
         return GetMinNode(root).Key;
     }
 
     public K LastKey()
     {
-        if (root == null) throw new InvalidOperationException("Empty");
+        if (root == null)
+        {
+            throw new InvalidOperationException("Empty");
+        }
         return GetMaxNode(root).Key;
     }
 
-    public K CeilingKey(K key) { return NodeToKey(GetCeilingNode(root, key)); }
-    public K FloorKey(K key) { return NodeToKey(GetFloorNode(root, key)); }
-    public K HigherKey(K key) { return NodeToKey(GetHigherNode(root, key)); }
-    public K LowerKey(K key) { return NodeToKey(GetLowerNode(root, key)); }
+    public K CeilingKey(K key)
+    {
+        return NodeToKey(GetCeilingNode(root, key));
+    }
 
-    private K NodeToKey(Node n) => (n == null) ? default(K) : n.Key;
+    public K FloorKey(K key)
+    {
+        return NodeToKey(GetFloorNode(root, key));
+    }
+
+    public K HigherKey(K key)
+    {
+        return NodeToKey(GetHigherNode(root, key));
+    }
+
+    public K LowerKey(K key)
+    {
+        return NodeToKey(GetLowerNode(root, key));
+    }
+
+    private K NodeToKey(Node n)
+    {
+        if (n == null)
+        {
+            return default(K);
+        }
+        return n.Key;
+    }
 
     private Node GetCeilingNode(Node x, K key)
     {
-        if (x == null) return null;
+        if (x == null)
+        {
+            return null;
+        }
         int cmp = comparator.Compare(key, x.Key);
-        if (cmp == 0) return x;
-        if (cmp > 0) return GetCeilingNode(x.Right, key);
+        if (cmp == 0)
+        {
+            return x;
+        }
+        if (cmp > 0)
+        {
+            return GetCeilingNode(x.Right, key);
+        }
         Node t = GetCeilingNode(x.Left, key);
-        return t != null ? t : x;
+        if (t != null)
+        {
+            return t;
+        }
+        return x;
     }
 
     private Node GetFloorNode(Node x, K key)
     {
-        if (x == null) return null;
+        if (x == null)
+        {
+            return null;
+        }
         int cmp = comparator.Compare(key, x.Key);
-        if (cmp == 0) return x;
-        if (cmp < 0) return GetFloorNode(x.Left, key);
+        if (cmp == 0)
+        {
+            return x;
+        }
+        if (cmp < 0)
+        {
+            return GetFloorNode(x.Left, key);
+        }
         Node t = GetFloorNode(x.Right, key);
-        return t != null ? t : x;
+        if (t != null)
+        {
+            return t;
+        }
+        return x;
     }
 
     private Node GetHigherNode(Node x, K key)
     {
-        if (x == null) return null;
+        if (x == null)
+        {
+            return null;
+        }
         int cmp = comparator.Compare(key, x.Key);
         if (cmp < 0)
         {
             Node t = GetHigherNode(x.Left, key);
-            return t != null ? t : x;
+            if (t != null)
+            {
+                return t;
+            }
+            return x;
         }
         return GetHigherNode(x.Right, key);
     }
 
     private Node GetLowerNode(Node x, K key)
     {
-        if (x == null) return null;
+        if (x == null)
+        {
+            return null;
+        }
         int cmp = comparator.Compare(key, x.Key);
         if (cmp > 0)
         {
             Node t = GetLowerNode(x.Right, key);
-            return t != null ? t : x;
+            if (t != null)
+            {
+                return t;
+            }
+            return x;
         }
         return GetLowerNode(x.Left, key);
     }
@@ -342,17 +511,46 @@ public class MyTreeMap<K, V> where K : IComparable<K>
 
     private void FillSubMap(Node x, MyTreeMap<K, V> map, K from, bool fromIncl, K to, bool toIncl)
     {
-        if (x == null) return;
+        if (x == null)
+        {
+            return;
+        }
 
         int cmpFrom = comparator.Compare(x.Key, from);
         int cmpTo = comparator.Compare(x.Key, to);
 
-        bool lowOK = fromIncl ? (cmpFrom >= 0) : (cmpFrom > 0);
-        bool highOK = toIncl ? (cmpTo <= 0) : (cmpTo < 0);
+        bool lowOK;
+        if (fromIncl)
+        {
+            lowOK = (cmpFrom >= 0);
+        }
+        else
+        {
+            lowOK = (cmpFrom > 0);
+        }
 
-        if (lowOK) FillSubMap(x.Left, map, from, fromIncl, to, toIncl);
-        if (lowOK && highOK) map.Put(x.Key, x.Value);
-        if (highOK) FillSubMap(x.Right, map, from, fromIncl, to, toIncl);
+        bool highOK;
+        if (toIncl)
+        {
+            highOK = (cmpTo <= 0);
+        }
+        else
+        {
+            highOK = (cmpTo < 0);
+        }
+
+        if (lowOK)
+        {
+            FillSubMap(x.Left, map, from, fromIncl, to, toIncl);
+        }
+        if (lowOK && highOK)
+        {
+            map.Put(x.Key, x.Value);
+        }
+        if (highOK)
+        {
+            FillSubMap(x.Right, map, from, fromIncl, to, toIncl);
+        }
     }
 
     public List<K> GetKeys()
@@ -361,9 +559,13 @@ public class MyTreeMap<K, V> where K : IComparable<K>
         InOrder(root, list);
         return list;
     }
+
     private void InOrder(Node x, List<K> list)
     {
-        if (x == null) return;
+        if (x == null)
+        {
+            return;
+        }
         InOrder(x.Left, list);
         list.Add(x.Key);
         InOrder(x.Right, list);
@@ -375,9 +577,13 @@ public class MyTreeMap<K, V> where K : IComparable<K>
         ReverseOrder(root, list);
         return list;
     }
+
     private void ReverseOrder(Node x, List<K> list)
     {
-        if (x == null) return;
+        if (x == null)
+        {
+            return;
+        }
         ReverseOrder(x.Right, list);
         list.Add(x.Key);
         ReverseOrder(x.Left, list);
@@ -390,61 +596,131 @@ public class MyTreeSet<E> : IEnumerable<E> where E : IComparable<E>
     private static readonly object PRESENT = new object();
 
     // 1) Конструктор пустой
-    public MyTreeSet() { m = new MyTreeMap<E, object>(); }
+    public MyTreeSet()
+    {
+        m = new MyTreeMap<E, object>();
+    }
 
     // 2) Конструктор с готовым Map
-    public MyTreeSet(MyTreeMap<E, object> map) { m = map; }
+    public MyTreeSet(MyTreeMap<E, object> map)
+    {
+        m = map;
+    }
 
     // 3) Конструктор с компаратором
-    public MyTreeSet(IComparer<E> comparator) { m = new MyTreeMap<E, object>(comparator); }
+    public MyTreeSet(IComparer<E> comparator)
+    {
+        m = new MyTreeMap<E, object>(comparator);
+    }
 
     // 4) Конструктор из массива
-    public MyTreeSet(E[] a) : this() { AddAll(a); }
+    public MyTreeSet(E[] a) : this()
+    {
+        AddAll(a);
+    }
 
     // 5) Конструктор из SortedSet
-    public MyTreeSet(SortedSet<E> s) : this() { foreach (var item in s) Add(item); }
+    public MyTreeSet(SortedSet<E> s) : this()
+    {
+        foreach (var item in s)
+        {
+            Add(item);
+        }
+    }
 
     // 6) Добавление элемента
-    public void Add(E e) => m.Put(e, PRESENT);
+    public void Add(E e)
+    {
+        m.Put(e, PRESENT);
+    }
 
     // 7) Добавление всех из массива
-    public void AddAll(E[] a) { if (a != null) foreach (var item in a) Add(item); }
+    public void AddAll(E[] a)
+    {
+        if (a != null)
+        {
+            foreach (var item in a)
+            {
+                Add(item);
+            }
+        }
+    }
 
     // 8) Очистка множества
-    public void Clear() => m.Clear();
+    public void Clear()
+    {
+        m.Clear();
+    }
 
     // 9) Проверка на содержание элемента
-    public bool Contains(object o) => m.ContainsKey(o);
+    public bool Contains(object o)
+    {
+        return m.ContainsKey(o);
+    }
 
     // 10) Проверка содержания массива
-    public bool ContainsAll(E[] a) { foreach (var item in a) if (!Contains(item)) return false; return true; }
+    public bool ContainsAll(E[] a)
+    {
+        foreach (var item in a)
+        {
+            if (!Contains(item))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
 
     // 11) Проверка на пустоту
-    public bool IsEmpty() => m.IsEmpty();
+    public bool IsEmpty()
+    {
+        return m.IsEmpty();
+    }
 
     // 12) Удаление объекта
-    public bool Remove(object o) => m.Remove(o);
+    public bool Remove(object o)
+    {
+        return m.Remove(o);
+    }
 
     // 13) Удаление всех из массива
-    public void RemoveAll(E[] a) { foreach (var item in a) Remove(item); }
+    public void RemoveAll(E[] a)
+    {
+        foreach (var item in a)
+        {
+            Remove(item);
+        }
+    }
 
     // 14) Оставить только указанные
     public void RetainAll(E[] a)
     {
         HashSet<E> toKeep = new HashSet<E>(a);
         List<E> allKeys = m.GetKeys();
-        foreach (var key in allKeys) if (!toKeep.Contains(key)) Remove(key);
+        foreach (var key in allKeys)
+        {
+            if (!toKeep.Contains(key))
+            {
+                Remove(key);
+            }
+        }
     }
 
     // 15) Размер множества
-    public int Size() => m.Size();
+    public int Size()
+    {
+        return m.Size();
+    }
 
     // 16) В массив (object)
     public object[] ToArray()
     {
         List<E> keys = m.GetKeys();
         object[] result = new object[keys.Count];
-        for (int i = 0; i < keys.Count; i++) result[i] = keys[i];
+        for (int i = 0; i < keys.Count; i++)
+        {
+            result[i] = keys[i];
+        }
         return result;
     }
 
@@ -452,51 +728,121 @@ public class MyTreeSet<E> : IEnumerable<E> where E : IComparable<E>
     public E[] ToArray(E[] a)
     {
         List<E> keys = m.GetKeys();
-        if (a == null || a.Length < keys.Count) return keys.ToArray();
+        if (a == null || a.Length < keys.Count)
+        {
+            return keys.ToArray();
+        }
         keys.CopyTo(a);
         return a;
     }
 
     // 18) Первый элемент
-    public E First() => m.FirstKey();
+    public E First()
+    {
+        return m.FirstKey();
+    }
 
     // 19) Последний элемент
-    public E Last() => m.LastKey();
+    public E Last()
+    {
+        return m.LastKey();
+    }
 
     // 20) Подмножество [from, to)
-    public MyTreeSet<E> SubSet(E from, E to) => SubSet(from, true, to, false);
+    public MyTreeSet<E> SubSet(E from, E to)
+    {
+        return SubSet(from, true, to, false);
+    }
 
     // 21) Множество до to (не вкл)
-    public MyTreeSet<E> HeadSet(E to) { try { return SubSet(m.FirstKey(), true, to, false); } catch { return new MyTreeSet<E>(); } }
+    public MyTreeSet<E> HeadSet(E to)
+    {
+        try
+        {
+            return SubSet(m.FirstKey(), true, to, false);
+        }
+        catch
+        {
+            return new MyTreeSet<E>();
+        }
+    }
 
     // 22) Множество от from (вкл)
-    public MyTreeSet<E> TailSet(E from) { try { return SubSet(from, true, m.LastKey(), true); } catch { return new MyTreeSet<E>(); } }
+    public MyTreeSet<E> TailSet(E from)
+    {
+        try
+        {
+            return SubSet(from, true, m.LastKey(), true);
+        }
+        catch
+        {
+            return new MyTreeSet<E>();
+        }
+    }
 
     // 23) Поиск: наименьший >= obj
-    public E Ceiling(E obj) => m.CeilingKey(obj);
+    public E Ceiling(E obj)
+    {
+        return m.CeilingKey(obj);
+    }
 
     // 24) Поиск: наибольший <= obj
-    public E Floor(E obj) => m.FloorKey(obj);
+    public E Floor(E obj)
+    {
+        return m.FloorKey(obj);
+    }
 
     // 25) Поиск: наименьший > obj
-    public E Higher(E obj) => m.HigherKey(obj);
+    public E Higher(E obj)
+    {
+        return m.HigherKey(obj);
+    }
 
     // 26) Поиск: наибольший < obj
-    public E Lower(E obj) => m.LowerKey(obj);
+    public E Lower(E obj)
+    {
+        return m.LowerKey(obj);
+    }
 
     // 27) HeadSet с условием включения
-    public MyTreeSet<E> HeadSet(E upper, bool incl) { try { return SubSet(m.FirstKey(), true, upper, incl); } catch { return new MyTreeSet<E>(); } }
+    public MyTreeSet<E> HeadSet(E upper, bool incl)
+    {
+        try
+        {
+            return SubSet(m.FirstKey(), true, upper, incl);
+        }
+        catch
+        {
+            return new MyTreeSet<E>();
+        }
+    }
 
     // 28) SubSet полный
-    public MyTreeSet<E> SubSet(E lower, bool lIncl, E upper, bool uIncl) => new MyTreeSet<E>(m.SubMap(lower, lIncl, upper, uIncl));
+    public MyTreeSet<E> SubSet(E lower, bool lIncl, E upper, bool uIncl)
+    {
+        return new MyTreeSet<E>(m.SubMap(lower, lIncl, upper, uIncl));
+    }
 
     // 29) TailSet с условием включения
-    public MyTreeSet<E> TailSet(E from, bool incl) { try { return SubSet(from, incl, m.LastKey(), true); } catch { return new MyTreeSet<E>(); } }
+    public MyTreeSet<E> TailSet(E from, bool incl)
+    {
+        try
+        {
+            return SubSet(from, incl, m.LastKey(), true);
+        }
+        catch
+        {
+            return new MyTreeSet<E>();
+        }
+    }
 
     // 30) Удалить и вернуть последний
     public E PollLast()
     {
-        if (IsEmpty()) return default(E);
+        if (IsEmpty())
+        {
+            return default(E);
+        }
         E key = m.LastKey();
         m.Remove(key);
         return key;
@@ -505,25 +851,41 @@ public class MyTreeSet<E> : IEnumerable<E> where E : IComparable<E>
     // 31) Удалить и вернуть первый
     public E PollFirst()
     {
-        if (IsEmpty()) return default(E);
+        if (IsEmpty())
+        {
+            return default(E);
+        }
         E key = m.FirstKey();
         m.Remove(key);
         return key;
     }
 
     // 32) Обратный итератор
-    public IEnumerator<E> DescendingIterator() => m.GetKeysDesc().GetEnumerator();
+    public IEnumerator<E> DescendingIterator()
+    {
+        return m.GetKeysDesc().GetEnumerator();
+    }
 
     // 33) Обратное множество
     public MyTreeSet<E> DescendingSet()
     {
         MyTreeSet<E> set = new MyTreeSet<E>();
-        foreach (var item in m.GetKeysDesc()) set.Add(item);
+        foreach (var item in m.GetKeysDesc())
+        {
+            set.Add(item);
+        }
         return set;
     }
 
-    public IEnumerator<E> GetEnumerator() => m.GetKeys().GetEnumerator();
-    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+    public IEnumerator<E> GetEnumerator()
+    {
+        return m.GetKeys().GetEnumerator();
+    }
+
+    IEnumerator IEnumerable.GetEnumerator()
+    {
+        return GetEnumerator();
+    }
 }
 
 class Program
@@ -534,29 +896,38 @@ class Program
         {
             MyTreeSet<int> set = new MyTreeSet<int>();
 
-            int[] nums = {7, 12, 23, 8, 31, 4, 16, 5};
+            int[] nums = { 7, 12, 23, 8, 31, 4, 16, 5 };
             set.AddAll(nums);
 
             Console.Write("Исходный: ");
-            foreach (var i in set) Console.Write(i + " ");
+            foreach (var i in set)
+            {
+                Console.Write(i + " ");
+            }
             Console.WriteLine();
 
             Console.WriteLine("Удаляем ");
-            set.Remove(12);
+            set.Remove(20);
 
             Console.WriteLine("Удаляем (лист)");
-            set.Remove(4);
-
-            Console.WriteLine("Удаляем (крайний)");
             set.Remove(5);
 
+            Console.WriteLine("Удаляем (крайний)");
+            set.Remove(40);
+
             Console.Write("После удалений: ");
-            foreach (var i in set) Console.Write(i + " ");
+            foreach (var i in set)
+            {
+                Console.Write(i + " ");
+            }
             Console.WriteLine();
 
             Console.WriteLine("SubSet:");
             var sub = set.SubSet(7, 23);
-            foreach (var i in sub) Console.Write(i + " ");
+            foreach (var i in sub)
+            {
+                Console.Write(i + " ");
+            }
             Console.WriteLine();
         }
         catch (Exception ex)
