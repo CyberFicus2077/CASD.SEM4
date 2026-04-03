@@ -20,7 +20,6 @@ class Graph
         g[u].Add(v);
         g[v].Add(u);
     }
-
     public void WelshPowellColoring()
     {
         int[] color = new int[n];
@@ -36,27 +35,25 @@ class Graph
 
         while (color.Any(c => c == -1))
         {
+            int first = sorted.First(item => color[item.v] == -1).v;
+            color[first] = curColor;
+
             foreach (var item in sorted)
             {
                 int v = item.v;
-
                 if (color[v] == -1)
                 {
                     bool ok = true;
-
-                    foreach (int to in g[v])
+                    for (int i = 0; i < n; i++)
                     {
-                        if (color[to] == curColor)
+                        if (color[i] == curColor && g[v].Contains(i))
                         {
                             ok = false;
                             break;
                         }
                     }
-
                     if (ok)
-                    {
                         color[v] = curColor;
-                    }
                 }
             }
             curColor++;
@@ -64,9 +61,7 @@ class Graph
 
         Console.WriteLine("Результат раскраски (Уэлш-Пауэлл):");
         for (int i = 0; i < n; i++)
-        {
             Console.WriteLine($"Вершина {i} ---> Цвет {color[i]}");
-        }
         Console.WriteLine($"Всего цветов: {curColor}");
     }
 }
