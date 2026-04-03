@@ -1,0 +1,89 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+class Graph
+{
+    private int n;
+    private List<int>[] g;
+
+    public Graph(int vertices)
+    {
+        n = vertices;
+        g = new List<int>[vertices];
+        for (int i = 0; i < vertices; i++)
+            g[i] = new List<int>();
+    }
+
+    public void AddEdge(int u, int v)
+    {
+        g[u].Add(v);
+        g[v].Add(u);
+    }
+
+    public void WelshPowellColoring()
+    {
+        int[] color = new int[n];
+        for (int i = 0; i < n; i++)
+            color[i] = -1;
+
+        var sorted = Enumerable.Range(0, n)
+            .Select(v => new { v, deg = g[v].Count })
+            .OrderByDescending(x => x.deg)
+            .ToList();
+
+        int curColor = 0;
+
+        while (color.Any(c => c == -1))
+        {
+            foreach (var item in sorted)
+            {
+                int v = item.v;
+
+                if (color[v] == -1)
+                {
+                    bool ok = true;
+
+                    foreach (int to in g[v])
+                    {
+                        if (color[to] == curColor)
+                        {
+                            ok = false;
+                            break;
+                        }
+                    }
+
+                    if (ok)
+                    {
+                        color[v] = curColor;
+                    }
+                }
+            }
+            curColor++;
+        }
+
+        Console.WriteLine("Результат раскраски (Уэлш-Пауэлл):");
+        for (int i = 0; i < n; i++)
+        {
+            Console.WriteLine($"Вершина {i} ---> Цвет {color[i]}");
+        }
+        Console.WriteLine($"Всего цветов: {curColor}");
+    }
+}
+
+class Program
+{
+    static void Main()
+    {
+        Graph g = new Graph(6);
+        g.AddEdge(0, 1);
+        g.AddEdge(0, 2);
+        g.AddEdge(1, 2);
+        g.AddEdge(1, 3);
+        g.AddEdge(2, 3);
+        g.AddEdge(3, 4);
+        g.AddEdge(4, 5);
+
+        g.WelshPowellColoring();
+    }
+}
