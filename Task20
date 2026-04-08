@@ -7,12 +7,35 @@ class Graph
     private int n;
     private List<int>[] g;
 
+    private class FlowEdge
+    {
+        public int To;         
+        public int Capacity;   
+        public int Flow;      
+        public int Rev;        
+
+        public FlowEdge(int to, int capacity, int flow, int rev)
+        {
+            To = to;
+            Capacity = capacity;
+            Flow = flow;
+            Rev = rev;
+        }
+    }
+
+    private List<FlowEdge>[] flowGraph;
+
     public Graph(int vertices)
     {
         n = vertices;
         g = new List<int>[vertices];
+        flowGraph = new List<FlowEdge>[vertices];
+
         for (int i = 0; i < vertices; i++)
+        {
             g[i] = new List<int>();
+            flowGraph[i] = new List<FlowEdge>();
+        }
     }
 
     public void AddEdge(int u, int v)
@@ -20,6 +43,15 @@ class Graph
         g[u].Add(v);
         g[v].Add(u);
     }
+
+    public void AddDirectedEdge(int u, int v)
+    {
+        g[u].Add(v);
+    }
+
+    public List<int>[] GetAdjList() => g;
+
+    // Уэлш-Пауэлл
     public void WelshPowellColoring()
     {
         int[] color = new int[n];
@@ -64,21 +96,225 @@ class Graph
             Console.WriteLine($"Вершина {i} ---> Цвет {color[i]}");
         Console.WriteLine($"Всего цветов: {curColor}");
     }
+
+    // Тарьян 
+    public void TarjanSCC()
+    {
+        int[] index = new int[n];
+        int[] lowlink = new int[n];
+        bool[] onStack = new bool[n];
+        Stack<int> stack = new Stack<int>();
+        List<List<int>> sccList = new List<List<int>>();
+
+        for (int i = 0; i < n; i++)
+            index[i] = -1;
+
+        int currentIndex = 0;
+
+        for (int i = 0; i < n; i++)
+        {
+            if (index[i] == -1)
+                StrongConnect(i, ref currentIndex, index, lowlink, onStack, stack, sccList);
+        }
+
+        Console.WriteLine("\nКомпоненты сильной связности (алгоритм Тарьяна):");
+        int compNum = 1;
+        foreach (var comp in sccList)
+        {
+            Console.WriteLine($"Компонента {compNum}: {{ {string.Join(", ", comp)} }}");
+            compNum++;
+        }
+    }
+
+    private void StrongConnect(int v, ref int currentIndex, int[] index, int[] lowlink,
+        bool[] onStack, Stack<int> stack, List<List<int>> sccList)
+    {
+        index[v] = currentIndex;
+        lowlink[v] = currentIndex;
+        currentIndex++;
+        stack.Push(v);
+        onStack[v] = true;
+
+        foreach (int w in g[v])
+        {
+            if (index[w] == -1)
+            {
+                StrongConnect(w, ref currentIndex, index, lowlink, onStack, stack, sccList);
+                lowlink[v] = Math.Min(lowlink[v], lowlink[w]);
+            }
+            else if (onStack[w])
+            {
+                lowlink[v] = Math.Min(lowlink[v], index[w]);
+            }
+        }
+
+        if (lowlink[v] == index[v])
+        {
+            List<int> component = new List<int>();
+            int w;
+            do
+            {
+                w = stack.Pop();
+                onStack[w] = false;
+                component.Add(w);
+            } while (w != v);
+            sccList.Add(component);
+        }
+    }
+
+    // алгоритм Диница
+    public void AddFlowEdge(int from, int to, int capacity)
+    {
+        FlowEdge forward = new FlowEdge(to, capacity, 0, flowGraph[to].Count);
+        FlowEdge backward = new FlowEdge(from, 0, 0, flowGraph[from].Count);
+
+        flowGraph[from].Add(forward);
+        flowGraph[to].Add(backward);
+    }
+
+    private bool BfsLevelGraph(int source, int sink, int[] level)
+    {
+        for (int i = 0; i < n; i++)
+            level[i] = -1;
+
+        Queue<int> queue = new Queue<int>();
+        level[source] = 0;
+        queue.Enqueue(source);
+
+        while (queue.Count > 0)
+        {
+            int v = queue.Dequeue();
+
+            foreach (var edge in flowGraph[v])
+            {
+                if (level[edge.To] < 0 && edge.Flow < edge.Capacity)
+                {
+                    level[edge.To] = level[v] + 1;
+                    queue.Enqueue(edge.To);
+                }
+            }
+        }
+
+        return level[sink] >= 0;
+    }
+
+    private int SendFlow(int v, int sink, int flow, int[] start, int[] level)
+    {
+        if (v == sink)
+            return flow;
+
+        for (; start[v] < flowGraph[v].Count; start[v]++)
+        {
+            FlowEdge edge = flowGraph[v][start[v]];
+
+            if (level[edge.To] == level[v] + 1 && edge.Flow < edge.Capacity)
+            {
+                int currentFlow = Math.Min(flow, edge.Capacity - edge.Flow);
+                int tempFlow = SendFlow(edge.To, sink, currentFlow, start, level);
+
+                if (tempFlow > 0)
+                {
+                    edge.Flow += tempFlow;
+                    flowGraph[v][start[v]] = edge;
+
+                    FlowEdge reverseEdge = flowGraph[edge.To][edge.Rev];
+                    reverseEdge.Flow -= tempFlow;
+                    flowGraph[edge.To][edge.Rev] = reverseEdge;
+
+                    return tempFlow;
+                }
+            }
+        }
+
+        return 0;
+    }
+
+    public void DinicMaxFlow(int source, int sink)
+    {
+        if (source == sink)
+        {
+            Console.WriteLine("Источник и сток совпадают. Максимальный поток = 0");
+            return;
+        }
+
+        int totalFlow = 0;
+        int[] level = new int[n];
+
+        while (BfsLevelGraph(source, sink, level))
+        {
+            int[] start = new int[n];
+
+            while (true)
+            {
+                int flow = SendFlow(source, sink, int.MaxValue, start, level);
+                if (flow <= 0)
+                    break;
+                totalFlow += flow;
+            }
+        }
+
+        Console.WriteLine("\nМаксимальный поток: " + totalFlow);
+    }
 }
 
 class Program
 {
     static void Main()
     {
-        Graph g = new Graph(6);
-        g.AddEdge(0, 1);
-        g.AddEdge(0, 2);
-        g.AddEdge(1, 2);
-        g.AddEdge(1, 3);
-        g.AddEdge(2, 3);
-        g.AddEdge(3, 4);
-        g.AddEdge(4, 5);
+        Console.WriteLine("Задание 20.");
+        Console.WriteLine("Выберите алгоритм:");
 
-        g.WelshPowellColoring();
+        Console.WriteLine("1) Раскраска графа. Алгоритм Уэлша-Пауэлла. (Задача 17)");
+        Console.WriteLine("2) Поиск компонент сильной связности. Алгоритм Тарьяна. (Задача 5)");
+        Console.WriteLine("3) Построение максимального потока в транспортной сети. Алгоритм Диница.(Задача 11)");
+
+        string choice = Console.ReadLine();
+
+        if (choice == "1")
+        {
+            Graph g = new Graph(6);
+            g.AddEdge(0, 1);
+            g.AddEdge(0, 2);
+            g.AddEdge(1, 2);
+            g.AddEdge(1, 3);
+            g.AddEdge(2, 3);
+            g.AddEdge(3, 4);
+            g.AddEdge(4, 5);
+            g.WelshPowellColoring();
+        }
+        else if (choice == "2")
+        {
+            Graph g = new Graph(7);
+            g.AddDirectedEdge(0, 1);
+            g.AddDirectedEdge(1, 2);
+            g.AddDirectedEdge(2, 0);
+            g.AddDirectedEdge(2, 3);
+            g.AddDirectedEdge(3, 4);
+            g.AddDirectedEdge(4, 3);
+            g.AddDirectedEdge(5, 6);
+
+            g.TarjanSCC();
+        }
+        else if (choice == "3")
+        {
+            Graph g = new Graph(6);
+
+            g.AddFlowEdge(0, 1, 16);
+            g.AddFlowEdge(0, 2, 13);
+            g.AddFlowEdge(1, 2, 10);
+            g.AddFlowEdge(2, 1, 4);
+            g.AddFlowEdge(1, 3, 12);
+            g.AddFlowEdge(3, 2, 9);
+            g.AddFlowEdge(2, 4, 14);
+            g.AddFlowEdge(4, 3, 7);
+            g.AddFlowEdge(3, 5, 20);
+            g.AddFlowEdge(4, 5, 4);
+
+            g.DinicMaxFlow(0, 5);
+        }
+        else
+        {
+            Console.WriteLine("Неверный выбор.");
+        }
     }
 }
