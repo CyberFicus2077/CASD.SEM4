@@ -1,0 +1,238 @@
+using System;
+using System.Collections.Generic;
+
+    public class Entry<K, V>
+    {
+        public K Key;
+        public V Value;
+        public Entry<K, V> Next;
+
+        public Entry(K key, V value)
+        {
+            this.Key = key;
+            this.Value = value;
+            this.Next = null;
+        }
+    }
+
+    public class MyHashMap<K, V>
+    {
+        private Entry<K, V>[] table;
+        private int size;
+        private float loadFactor;
+
+        // 1) Конструктор по умолчанию
+        public MyHashMap() : this(16, 0.75f) { }
+
+        // 2) Конструктор с начальной емкостью
+        public MyHashMap(int initialCapacity) : this(initialCapacity, 0.75f) { }
+
+        // 3) Конструктор с начальной емкостью и коэффициентом загрузки
+        public MyHashMap(int initialCapacity, float loadFactor)
+        {
+            this.table = new Entry<K, V>[initialCapacity];
+            this.loadFactor = loadFactor;
+            this.size = 0;
+        }
+
+        // 4) Метод clear()
+        public void clear()
+        {
+            this.table = new Entry<K, V>[table.Length];
+            this.size = 0;
+        }
+
+        // 5) Метод containsKey()
+        public bool containsKey(object key)
+        {
+            int index = GetBucketIndex(key);
+            Entry<K, V> current = table[index];
+            while (current != null)
+            {
+                if (current.Key.Equals(key)) return true;
+                current = current.Next;
+            }
+            return false;
+        }
+
+        // 6) Метод containsValue()
+        public bool containsValue(object value)
+        {
+            for (int i = 0; i < table.Length; i++)
+            {
+                Entry<K, V> current = table[i];
+                while (current != null)
+                {
+                    if (current.Value != null && current.Value.Equals(value)) return true;
+                    if (current.Value == null && value == null) return true;
+                    current = current.Next;
+                }
+            }
+            return false;
+        }
+
+        // 7) Метод entrySet()
+        public HashSet<Entry<K, V>> entrySet()
+        {
+            HashSet<Entry<K, V>> set = new HashSet<Entry<K, V>>();
+            for (int i = 0; i < table.Length; i++)
+            {
+                Entry<K, V> current = table[i];
+                while (current != null)
+                {
+                    set.Add(current);
+                    current = current.Next;
+                }
+            }
+            return set;
+        }
+
+        // 8) Метод get()
+        public V get(object key)
+        {
+            int index = GetBucketIndex(key);
+            Entry<K, V> current = table[index];
+            while (current != null)
+            {
+                if (current.Key.Equals(key)) return current.Value;
+                current = current.Next;
+            }
+            return default(V);
+        }
+
+        // 9) Метод isEmpty()
+        public bool isEmpty()
+        {
+            return size == 0;
+        }
+
+        // 10) Метод keySet()
+        public HashSet<K> keySet()
+        {
+            HashSet<K> set = new HashSet<K>();
+            for (int i = 0; i < table.Length; i++)
+            {
+                Entry<K, V> current = table[i];
+                while (current != null)
+                {
+                    set.Add(current.Key);
+                    current = current.Next;
+                }
+            }
+            return set;
+        }
+        // 11) Метод put(K key, V value)
+        public void put(K key, V value)
+        {
+            // Проверка на расширение (если достигнут коэффициент загрузки)
+            if (size >= table.Length * loadFactor)
+            {
+                Resize();
+            }
+
+            // 1) Вычисляется значение hashCode
+            int h = key.GetHashCode();
+
+            // 2) Определяется бакет (ячейка массива)
+            int index = Math.Abs(h) % table.Length;
+
+            // 3) Если бакет пустой, то элемент просто добавляется
+            if (table[index] == null)
+            {
+                table[index] = new Entry<K, V>(key, value);
+                size++;
+                return;
+            }
+
+            // 4) Если бакет не пустой, идем по списку
+            Entry<K, V> current = table[index];
+            while (current != null)
+            {
+                // 5) Сравниваем по хешкодам
+                if (current.Key.GetHashCode() == h)
+                {
+                    // 6) Если хешкоды равны, сравниваем по equals()
+                    if (current.Key.Equals(key))
+                    {
+                        // 7) Если равны, перезаписываем значение
+                        current.Value = value;
+                        return;
+                    }
+                }
+
+                // 8) Если ключи не равны, переходим к следующему (если он есть)
+                if (current.Next == null) break;
+                current = current.Next;
+            }
+
+            // 9) Если не нашли в списке, добавляем в конец
+            current.Next = new Entry<K, V>(key, value);
+            size++;
+        }
+
+
+        // 12) Метод remove()
+        public void remove(object key)
+        {
+            int index = GetBucketIndex(key);
+            Entry<K, V> current = table[index];
+            Entry<K, V> prev = null;
+
+            while (current != null)
+            {
+                if (current.Key.Equals(key))
+                {
+                    if (prev == null) table[index] = current.Next;
+                    else prev.Next = current.Next;
+                    size--;
+                    return;
+                }
+                prev = current;
+                current = current.Next;
+            }
+        }
+
+        // 13) Метод size()
+        public int size_method()
+        {
+            return size;
+        }
+
+        private int GetBucketIndex(object key)
+        {
+            if (key == null) return 0;
+            return Math.Abs(key.GetHashCode()) % table.Length;
+        }
+
+        private void Resize()
+        {
+            Entry<K, V>[] oldTable = table;
+            table = new Entry<K, V>[oldTable.Length * 2];
+            size = 0;
+
+            for (int i = 0; i < oldTable.Length; i++)
+            {
+                Entry<K, V> current = oldTable[i];
+                while (current != null)
+                {
+                    put(current.Key, current.Value);
+                    current = current.Next;
+                }
+            }
+        }
+    }
+
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            MyHashMap<string, string> map = new MyHashMap<string, string>();
+            map.put("1", "Один");
+            map.put("2", "Два");
+
+            Console.WriteLine("Размер: " + map.size_method());
+            Console.WriteLine("Ключ 1: " + map.get("1"));
+
+            Console.ReadLine();
+        }
+    }
