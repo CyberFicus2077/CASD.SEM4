@@ -1,0 +1,243 @@
+using System;
+using System.Collections.Generic;
+
+namespace Task25
+{
+    public class MyHashMap<K, V>
+    {
+        private class Entry
+        {
+            public K Key;
+            public V Value;
+            public Entry Next;
+            public Entry(K key, V value) { Key = key; Value = value; }
+        }
+
+        private Entry[] table;
+        private int _size;
+        private float loadFactor;
+
+        public MyHashMap(int initialCapacity, float loadFactor)
+        {
+            this.table = new Entry[initialCapacity];
+            this.loadFactor = loadFactor;
+            this._size = 0;
+        }
+
+        private int GetIndex(object key)
+        {
+            if (key == null) return 0;
+            return (key.GetHashCode() & 0x7FFFFFFF) % table.Length;
+        }
+
+        public void put(K key, V value)
+        {
+            if (_size >= table.Length * loadFactor) Resize();
+            int index = GetIndex(key);
+            Entry curr = table[index];
+            while (curr != null)
+            {
+                if (Equals(curr.Key, key)) { curr.Value = value; return; }
+                curr = curr.Next;
+            }
+            Entry newEntry = new Entry(key, value);
+            newEntry.Next = table[index];
+            table[index] = newEntry;
+            _size++;
+        }
+
+        public bool containsKey(object key)
+        {
+            int index = GetIndex(key);
+            Entry curr = table[index];
+            while (curr != null)
+            {
+                if (Equals(curr.Key, key)) return true;
+                curr = curr.Next;
+            }
+            return false;
+        }
+
+        public void remove(object key)
+        {
+            int index = GetIndex(key);
+            Entry curr = table[index];
+            Entry prev = null;
+            while (curr != null)
+            {
+                if (Equals(curr.Key, key))
+                {
+                    if (prev == null) table[index] = curr.Next;
+                    else prev.Next = curr.Next;
+                    _size--; return;
+                }
+                prev = curr; curr = curr.Next;
+            }
+        }
+
+        public void clear() { table = new Entry[table.Length]; _size = 0; }
+        public int size() => _size;
+        public bool isEmpty() => _size == 0;
+
+        public K[] GetKeys()
+        {
+            K[] keys = new K[_size];
+            int counter = 0;
+            for (int i = 0; i < table.Length; i++)
+            {
+                Entry curr = table[i];
+                while (curr != null) { keys[counter++] = curr.Key; curr = curr.Next; }
+            }
+            return keys;
+        }
+
+        private void Resize()
+        {
+            Entry[] old = table;
+            table = new Entry[old.Length * 2];
+            _size = 0;
+            foreach (var node in old)
+            {
+                Entry c = node;
+                while (c != null) { put(c.Key, c.Value); c = c.Next; }
+            }
+        }
+    }
+
+    // --- КЛАСС MyHashSet (Задача 25) ---
+    public class MyHashSet<T>
+    {
+        // Поле map для хранения элементов
+        private MyHashMap<T, object> map;
+        // Фиктивный объект (пустышка)
+        private static readonly object PRESENT = new object();
+
+        // 1) Конструктор по умолчанию
+        public MyHashSet()
+        {
+            map = new MyHashMap<T, object>(16, 0.75f);
+        }
+
+        // 4) Конструктор с начальной емкостью
+        public MyHashSet(int initialCapacity)
+        {
+            map = new MyHashMap<T, object>(initialCapacity, 0.75f);
+        }
+
+        // 3) Конструктор с емкостью и коэффициентом
+        public MyHashSet(int initialCapacity, float loadFactor)
+        {
+            map = new MyHashMap<T, object>(initialCapacity, loadFactor);
+        }
+
+        // 2) Конструктор из массива
+        public MyHashSet(T[] a) : this()
+        {
+            addAll(a);
+        }
+
+        // 5) Метод add(T e)
+        public void add(T e)
+        {
+            map.put(e, PRESENT);
+        }
+
+        // 6) Метод addAll(T[] a)
+        public void addAll(T[] a)
+        {
+            if (a == null) return;
+            foreach (T item in a) add(item);
+        }
+
+        // 7) Метод clear()
+        public void clear() { map.clear(); }
+
+        // 8) Метод contains(object o)
+        public bool contains(object o) { return map.containsKey(o); }
+
+        // 9) Метод containsAll(T[] a)
+        public bool containsAll(T[] a)
+        {
+            if (a == null) return true;
+            foreach (T item in a) if (!contains(item)) return false;
+            return true;
+        }
+
+        // 10) Метод isEmpty()
+        public bool isEmpty() { return map.isEmpty(); }
+
+        // 11) Метод remove(object o)
+        public void remove(object o) { map.remove(o); }
+
+        // 12) Метод removeAll(T[] a)
+        public void removeAll(T[] a)
+        {
+            if (a == null) return;
+            foreach (T item in a) remove(item);
+        }
+
+        // 13) Метод retainAll(T[] a) - Оставить только те, что есть в массиве 'a'
+        public void retainAll(T[] a)
+        {
+            if (a == null) { clear(); return; }
+            T[] currentElements = map.GetKeys();
+            foreach (T item in currentElements)
+            {
+                bool found = false;
+                foreach (T other in a)
+                {
+                    if (Equals(item, other)) { found = true; break; }
+                }
+                if (!found) remove(item);
+            }
+        }
+
+        // 14) Метод size()
+        public int size() { return map.size(); }
+
+        // 15) Метод toArray()
+        public object[] toArray()
+        {
+            T[] keys = map.GetKeys();
+            object[] result = new object[keys.Length];
+            for (int i = 0; i < keys.Length; i++) result[i] = keys[i];
+            return result;
+        }
+
+        // 16) Метод toArray(T[] a)
+        public T[] toArray(T[] a)
+        {
+            T[] keys = map.GetKeys();
+            if (a == null || a.Length < keys.Length)
+            {
+                return keys; // Возвращаем новый массив с элементами
+            }
+            Array.Copy(keys, a, keys.Length);
+            return a;
+        }
+    }
+
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            MyHashSet<string> set = new MyHashSet<string>();
+            set.add("Яблоко");
+            set.add("Банан");
+            set.add("Яблоко"); // Дубликат не добавится
+
+            Console.WriteLine("Размер: " + set.size()); // 2
+            Console.WriteLine("Есть Банан? " + set.contains("Банан"));
+
+            string[] fruits = { "Груша", "Киви" };
+            set.addAll(fruits);
+            Console.WriteLine("Размер после addAll: " + set.size());
+
+            set.remove("Банан");
+            Console.WriteLine("Размер после удаления Банана: " + set.size());
+
+            Console.ReadKey();
+        }
+    }
+}
+
