@@ -1,0 +1,209 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+
+namespace Task24
+{
+    public class Entry<K, V>
+    {
+        public K Key; public V Value; public Entry<K, V> Next;
+        public Entry(K key, V value) { Key = key; Value = value; }
+    }
+
+    public class MyHashMap<K, V>
+    {
+        private Entry<K, V>[] table;
+        private int _size;
+        private float loadFactor;
+
+        public MyHashMap(int initialCapacity, float loadFactor)
+        {
+            this.table = new Entry<K, V>[initialCapacity];
+            this.loadFactor = loadFactor;
+            this._size = 0;
+        }
+
+        private int GetIndex(object key) => (key.GetHashCode() & 0x7FFFFFFF) % table.Length;
+
+        public void put(K key, V value)
+        {
+            if (_size >= table.Length * loadFactor) Resize();
+            int index = GetIndex(key);
+            Entry<K, V> curr = table[index];
+            while (curr != null)
+            {
+                if (curr.Key.Equals(key)) { curr.Value = value; return; }
+                curr = curr.Next;
+            }
+            Entry<K, V> newE = new Entry<K, V>(key, value);
+            newE.Next = table[index];
+            table[index] = newE;
+            _size++;
+        }
+
+        public V get(object key)
+        {
+            int index = GetIndex(key);
+            Entry<K, V> curr = table[index];
+            while (curr != null) { if (curr.Key.Equals(key)) return curr.Value; curr = curr.Next; }
+            return default;
+        }
+
+        public void remove(object key)
+        {
+            int index = GetIndex(key);
+            Entry<K, V> curr = table[index], prev = null;
+            while (curr != null)
+            {
+                if (curr.Key.Equals(key))
+                {
+                    if (prev == null) table[index] = curr.Next;
+                    else prev.Next = curr.Next;
+                    _size--; return;
+                }
+                prev = curr; curr = curr.Next;
+            }
+        }
+
+        private void Resize()
+        {
+            Entry<K, V>[] old = table;
+            table = new Entry<K, V>[old.Length * 2];
+            _size = 0;
+            foreach (var node in old)
+            {
+                Entry<K, V> c = node;
+                while (c != null) { put(c.Key, c.Value); c = c.Next; }
+            }
+        }
+    }
+
+    public class MyTreeMap<K, V> where K : IComparable<K>
+    {
+        private class Node
+        {
+            public K Key; public V Value; public Node Left, Right;
+            public Node(K key, V value) { Key = key; Value = value; }
+        }
+        private Node root;
+        private int size = 0;
+
+        public void Put(K key, V value)
+        {
+            if (root == null) { root = new Node(key, value); size++; return; }
+            Node curr = root, parent = null; int cmp = 0;
+            while (curr != null)
+            {
+                parent = curr; cmp = key.CompareTo(curr.Key);
+                if (cmp < 0) curr = curr.Left; else if (cmp > 0) curr = curr.Right; else { curr.Value = value; return; }
+            }
+            if (cmp < 0) parent.Left = new Node(key, value); else parent.Right = new Node(key, value);
+            size++;
+        }
+
+        public V Get(K key)
+        {
+            Node curr = root;
+            while (curr != null)
+            {
+                int cmp = key.CompareTo(curr.Key);
+                if (cmp < 0) curr = curr.Left; else if (cmp > 0) curr = curr.Right; else return curr.Value;
+            }
+            return default;
+        }
+
+        public void Remove(K key)
+        {
+            root = RemoveNode(root, key);
+        }
+
+        private Node RemoveNode(Node node, K key)
+        {
+            if (node == null) return null;
+            int cmp = key.CompareTo(node.Key);
+            if (cmp < 0) node.Left = RemoveNode(node.Left, key);
+            else if (cmp > 0) node.Right = RemoveNode(node.Right, key);
+            else
+            {
+                if (node.Left == null) return node.Right;
+                if (node.Right == null) return node.Left;
+                Node min = node.Right; while (min.Left != null) min = min.Left;
+                node.Key = min.Key; node.Value = min.Value;
+                node.Right = RemoveNode(node.Right, min.Key);
+            }
+            return node;
+        }
+    }
+
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            int[] sizes = {100000, 1000000, 10000000, 100000000};
+            int runs = 20;
+
+            Console.WriteLine("Size\t\tOperation\tHashMap (avg ms)\tTreeMap (avg ms)");
+            Console.WriteLine("-----------------------------------------------------------------------");
+
+            foreach (int n in sizes)
+            {
+                int[] keys = new int[n];
+                Random rnd = new Random();
+                for (int i = 0; i < n; i++) keys[i] = i;
+                for (int i = 0; i < n; i++) { int j = rnd.Next(i, n); int t = keys[i]; keys[i] = keys[j]; keys[j] = t; }
+
+                double hPut = RunTest(() => {
+                    var map = new MyHashMap<int, int>(16, 0.75f);
+                    for (int i = 0; i < n; i++) map.put(keys[i], i);
+                }, runs);
+
+                double tPut = RunTest(() => {
+                    var tree = new MyTreeMap<int, int>();
+                    for (int i = 0; i < n; i++) tree.Put(keys[i], i);
+                }, runs);
+                Console.WriteLine($"{n:N0}\tPUT\t\t{hPut:F2}\t\t\t{tPut:F2}");
+
+                var fMap = new MyHashMap<int, int>(n, 0.75f);
+                var fTree = new MyTreeMap<int, int>();
+                for (int i = 0; i < n; i++) { fMap.put(keys[i], i); fTree.Put(keys[i], i); }
+
+                double hGet = RunTest(() => {
+                    for (int i = 0; i < n; i++) fMap.get(keys[i]);
+                }, runs);
+
+                double tGet = RunTest(() => {
+                    for (int i = 0; i < n; i++) fTree.Get(keys[i]);
+                }, runs);
+                Console.WriteLine($"{n:N0}\tGET\t\t{hGet:F2}\t\t\t{tGet:F2}");
+
+                double hRem = RunTest(() => {
+                    for (int i = 0; i < 1000; i++) fMap.remove(keys[i]);
+                }, runs);
+
+                double tRem = RunTest(() => {
+                    for (int i = 0; i < 1000; i++) fTree.Remove(keys[i]);
+                }, runs);
+                Console.WriteLine($"{n:N0}\tREMOVE\t\t{hRem:F2}\t\t\t{tRem:F2}");
+                Console.WriteLine("-----------------------------------------------------------------------");
+
+                keys = null; fMap = null; fTree = null;
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+            }
+            Console.WriteLine("All tests finished.");
+            Console.ReadKey();
+        }
+
+        static double RunTest(Action action, int iterations)
+        {
+            Stopwatch sw = new Stopwatch();
+            action();
+
+            sw.Start();
+            for (int i = 0; i < iterations; i++) action();
+            sw.Stop();
+
+            return sw.Elapsed.TotalMilliseconds / iterations;
+        }
+    }
+}
