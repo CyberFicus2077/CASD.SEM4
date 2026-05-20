@@ -1,0 +1,225 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Text.RegularExpressions;
+
+namespace task25
+{
+    public class MyHashMap<K, V>
+    {
+        private class Entry
+        {
+            public K Key; public V Value; public Entry Next;
+            public Entry(K key, V value) { Key = key; Value = value; }
+        }
+        private Entry[] table;
+        private int _size;
+        private float loadFactor;
+
+        public MyHashMap(int initialCapacity, float loadFactor)
+        {
+            table = new Entry[initialCapacity];
+            this.loadFactor = loadFactor;
+        }
+
+        private int GetIndex(object key) => (key.GetHashCode() & 0x7FFFFFFF) % table.Length;
+
+        public void put(K key, V value)
+        {
+            if (_size >= table.Length * loadFactor) resize();
+            int index = GetIndex(key);
+            Entry curr = table[index];
+            while (curr != null) { if (Equals(curr.Key, key)) { curr.Value = value; return; } curr = curr.Next; }
+            Entry newE = new Entry(key, value);
+            newE.Next = table[index]; table[index] = newE;
+            _size++;
+        }
+
+        public void remove(object key)
+        {
+            int index = GetIndex(key);
+            Entry curr = table[index], prev = null;
+            while (curr != null)
+            {
+                if (Equals(curr.Key, key)) { if (prev == null) table[index] = curr.Next; else prev.Next = curr.Next; _size--; return; }
+                prev = curr; curr = curr.Next;
+            }
+        }
+
+        public bool containsKey(object key)
+        {
+            int index = GetIndex(key);
+            Entry curr = table[index];
+            while (curr != null) { if (Equals(curr.Key, key)) return true; curr = curr.Next; }
+            return false;
+        }
+
+        public void clear() { Array.Clear(table, 0, table.Length); _size = 0; }
+        public int size() => _size;
+        public bool isEmpty() => _size == 0;
+
+        public K[] GetKeys()
+        {
+            K[] keys = new K[_size];
+            int counter = 0;
+            foreach (var node in table) { var c = node; while (c != null) { keys[counter++] = c.Key; c = c.Next; } }
+            return keys;
+        }
+
+        private void resize()
+        {
+            Entry[] old = table;
+            table = new Entry[old.Length * 2]; _size = 0;
+            foreach (var node in old) { var c = node; while (c != null) { put(c.Key, c.Value); c = c.Next; } }
+        }
+    }
+
+    public class MyHashSet<T>
+    {
+        private MyHashMap<T, object> map;
+        private static readonly object PRESENT = new object();
+
+        public MyHashSet() : this(16, 0.75f) { }
+        public MyHashSet(int initialCapacity) : this(initialCapacity, 0.75f) { }
+        public MyHashSet(int initialCapacity, float loadFactor) { map = new MyHashMap<T, object>(initialCapacity, loadFactor); }
+        public MyHashSet(T[] a) : this() { addAll(a); }
+
+        public void add(T e) => map.put(e, PRESENT);
+        public void addAll(T[] a) { if (a != null) foreach (T e in a) add(e); }
+        public void clear() => map.clear();
+        public bool contains(object o) => map.containsKey(o);
+        public bool containsAll(T[] a) { if (a == null) return true; foreach (T e in a) if (!contains(e)) return false; return true; }
+        public bool isEmpty() => map.isEmpty();
+        public void remove(object o) => map.remove(o);
+        public void removeAll(T[] a) { if (a != null) foreach (T e in a) remove(e); }
+        public void retainAll(T[] a)
+        {
+            if (a == null) { clear(); return; }
+            T[] currentKeys = map.GetKeys();
+            foreach (T key in currentKeys)
+            {
+                bool found = false;
+                foreach (T other in a) if (Equals(key, other)) { found = true; break; }
+                if (!found) remove(key);
+            }
+        }
+        public int size() => map.size();
+        public object[] toArray()
+        {
+            T[] keys = map.GetKeys(); object[] res = new object[keys.Length];
+            for (int i = 0; i < keys.Length; i++) res[i] = keys[i]; return res;
+        }
+        public T[] toArray(T[] a)
+        {
+            T[] keys = map.GetKeys();
+            if (a == null || a.Length < keys.Length) return keys;
+            Array.Copy(keys, a, keys.Length); return a;
+        }
+    }
+
+    public class WordLengthWrapper
+    {
+        public string Text;
+        private List<int> lengths;
+        public WordLengthWrapper(string s)
+        {
+            Text = s; lengths = new List<int>();
+            string[] words = s.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var w in words) lengths.Add(w.Length);
+            lengths.Sort();
+        }
+        public override bool Equals(object obj)
+        {
+            if (!(obj is WordLengthWrapper other) || lengths.Count != other.lengths.Count) return false;
+            for (int i = 0; i < lengths.Count; i++) if (lengths[i] != other.lengths[i]) return false;
+            return true;
+        }
+        public override int GetHashCode()
+        {
+            int h = 17; foreach (int l in lengths) h = h * 31 + l; return h;
+        }
+    }
+
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            bool exit = false;
+            while (!exit)
+            {
+                Console.Clear();
+                Console.WriteLine("Меню выбора:");
+                Console.WriteLine("1. Задача 25 (Демонстрация методов MyHashSet)");
+                Console.WriteLine("2. Задача 26 (Считывание строк по длинам слов)");
+                Console.WriteLine("3. Задача 27 (Уникальные латинские слова)");
+                Console.WriteLine("0. Выход");
+                Console.Write("\nВаш выбор: ");
+                string choice = Console.ReadLine();
+
+                switch (choice)
+                {
+                    case "1":
+                        RunTask25();
+                        Console.WriteLine("\nНажмите любую клавишу для возврата в меню...");
+                        Console.ReadKey();
+                        break;
+                    case "2":
+                        RunTask26();
+                        Console.WriteLine("\nНажмите любую клавишу для возврата в меню...");
+                        Console.ReadKey();
+                        break;
+                    case "3":
+                        RunTask27();
+                        Console.WriteLine("\nНажмите любую клавишу для возврата в меню...");
+                        Console.ReadKey();
+                        break;
+                    case "0":
+                        exit = true;
+                        break;
+                    default:
+                        Console.WriteLine("Ошибка выбора. Нажмите любую клавишу...");
+                        Console.ReadKey();
+                        break;
+                }
+            }
+        }
+
+        static void RunTask25()
+        {
+            Console.WriteLine("\nMyHashSet");
+            MyHashSet<string> set = new MyHashSet<string>();
+            set.add("A"); set.add("B"); set.add("A");
+            Console.WriteLine("Добавили A, B, A. Размер: " + set.size());
+            string[] arr = { "B", "C", "D" };
+            set.retainAll(arr);
+            Console.WriteLine("После retainAll({B, C, D}) остались: " + string.Join(", ", set.toArray()));
+        }
+
+        static void RunTask26()
+        {
+            Console.WriteLine("\nЗадача 26");
+            string path = "input26.txt";
+            if (!File.Exists(path)) File.WriteAllText(path, "кот пес\nдом сад\nмашина\nарбуз");
+
+            MyHashSet<WordLengthWrapper> set = new MyHashSet<WordLengthWrapper>();
+            foreach (string line in File.ReadAllLines(path)) set.add(new WordLengthWrapper(line));
+
+            Console.WriteLine("Уникальные по длинам слов строки:");
+            foreach (var item in set.toArray()) Console.WriteLine(((WordLengthWrapper)item).Text);
+        }
+
+        static void RunTask27()
+        {
+            Console.WriteLine("\nЗадача 27");
+            string path = "input27.txt";
+            if (!File.Exists(path)) File.WriteAllText(path, "Hello world! hello, WORLD. 123 test.");
+
+            MyHashSet<string> set = new MyHashSet<string>();
+            string content = File.ReadAllText(path);
+            foreach (Match m in Regex.Matches(content, @"[a-zA-Z]+")) set.add(m.Value.ToLower());
+
+            Console.WriteLine("Уникальные латинские слова:");
+            foreach (var word in set.toArray()) Console.WriteLine(word);
+        }
+    }
+}
