@@ -1,81 +1,60 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Text.RegularExpressions;
 
-namespace Task25
+namespace LabWork
 {
     public class MyHashMap<K, V>
     {
         private class Entry
         {
-            public K Key;
-            public V Value;
-            public Entry Next;
+            public K Key; public V Value; public Entry Next;
             public Entry(K key, V value) { Key = key; Value = value; }
         }
-
         private Entry[] table;
         private int _size;
         private float loadFactor;
 
         public MyHashMap(int initialCapacity, float loadFactor)
         {
-            this.table = new Entry[initialCapacity];
+            table = new Entry[initialCapacity];
             this.loadFactor = loadFactor;
-            this._size = 0;
         }
 
-        private int GetIndex(object key)
-        {
-            if (key == null) return 0;
-            return (key.GetHashCode() & 0x7FFFFFFF) % table.Length;
-        }
+        private int GetIndex(object key) => (key.GetHashCode() & 0x7FFFFFFF) % table.Length;
 
         public void put(K key, V value)
         {
-            if (_size >= table.Length * loadFactor) Resize();
+            if (_size >= table.Length * loadFactor) resize();
             int index = GetIndex(key);
             Entry curr = table[index];
+            while (curr != null) { if (Equals(curr.Key, key)) { curr.Value = value; return; } curr = curr.Next; }
+            Entry newE = new Entry(key, value);
+            newE.Next = table[index]; table[index] = newE;
+            _size++;
+        }
+
+        public void remove(object key)
+        {
+            int index = GetIndex(key);
+            Entry curr = table[index], prev = null;
             while (curr != null)
             {
-                if (Equals(curr.Key, key)) { curr.Value = value; return; }
-                curr = curr.Next;
+                if (Equals(curr.Key, key)) { if (prev == null) table[index] = curr.Next; else prev.Next = curr.Next; _size--; return; }
+                prev = curr; curr = curr.Next;
             }
-            Entry newEntry = new Entry(key, value);
-            newEntry.Next = table[index];
-            table[index] = newEntry;
-            _size++;
         }
 
         public bool containsKey(object key)
         {
             int index = GetIndex(key);
             Entry curr = table[index];
-            while (curr != null)
-            {
-                if (Equals(curr.Key, key)) return true;
-                curr = curr.Next;
-            }
+            while (curr != null) { if (Equals(curr.Key, key)) return true; curr = curr.Next; }
             return false;
         }
 
-        public void remove(object key)
-        {
-            int index = GetIndex(key);
-            Entry curr = table[index];
-            Entry prev = null;
-            while (curr != null)
-            {
-                if (Equals(curr.Key, key))
-                {
-                    if (prev == null) table[index] = curr.Next;
-                    else prev.Next = curr.Next;
-                    _size--; return;
-                }
-                prev = curr; curr = curr.Next;
-            }
-        }
-
-        public void clear() { table = new Entry[table.Length]; _size = 0; }
+        public void clear() { Array.Clear(table, 0, table.Length); _size = 0; }
         public int size() => _size;
         public bool isEmpty() => _size == 0;
 
@@ -83,137 +62,99 @@ namespace Task25
         {
             K[] keys = new K[_size];
             int counter = 0;
-            for (int i = 0; i < table.Length; i++)
-            {
-                Entry curr = table[i];
-                while (curr != null) { keys[counter++] = curr.Key; curr = curr.Next; }
-            }
+            foreach (var node in table) { var c = node; while (c != null) { keys[counter++] = c.Key; c = c.Next; } }
             return keys;
         }
 
-        private void Resize()
+        private void resize()
         {
             Entry[] old = table;
-            table = new Entry[old.Length * 2];
-            _size = 0;
-            foreach (var node in old)
-            {
-                Entry c = node;
-                while (c != null) { put(c.Key, c.Value); c = c.Next; }
-            }
+            table = new Entry[old.Length * 2]; _size = 0;
+            foreach (var node in old) { var c = node; while (c != null) { put(c.Key, c.Value); c = c.Next; } }
         }
     }
 
-    // --- КЛАСС MyHashSet (Задача 25) ---
     public class MyHashSet<T>
     {
-        // Поле map для хранения элементов
         private MyHashMap<T, object> map;
-        // Фиктивный объект (пустышка)
         private static readonly object PRESENT = new object();
 
-        // 1) Конструктор по умолчанию
-        public MyHashSet()
-        {
-            map = new MyHashMap<T, object>(16, 0.75f);
-        }
+        public MyHashSet() : this(16, 0.75f) { }
+        public MyHashSet(int initialCapacity) : this(initialCapacity, 0.75f) { }
+        public MyHashSet(int initialCapacity, float loadFactor) { map = new MyHashMap<T, object>(initialCapacity, loadFactor); }
+        public MyHashSet(T[] a) : this() { addAll(a); }
 
-        // 4) Конструктор с начальной емкостью
-        public MyHashSet(int initialCapacity)
-        {
-            map = new MyHashMap<T, object>(initialCapacity, 0.75f);
-        }
-
-        // 3) Конструктор с емкостью и коэффициентом
-        public MyHashSet(int initialCapacity, float loadFactor)
-        {
-            map = new MyHashMap<T, object>(initialCapacity, loadFactor);
-        }
-
-        // 2) Конструктор из массива
-        public MyHashSet(T[] a) : this()
-        {
-            addAll(a);
-        }
-
-        // 5) Метод add(T e)
-        public void add(T e)
-        {
-            map.put(e, PRESENT);
-        }
-
-        // 6) Метод addAll(T[] a)
-        public void addAll(T[] a)
-        {
-            if (a == null) return;
-            foreach (T item in a) add(item);
-        }
-
-        // 7) Метод clear()
-        public void clear() { map.clear(); }
-
-        // 8) Метод contains(object o)
-        public bool contains(object o) { return map.containsKey(o); }
-
-        // 9) Метод containsAll(T[] a)
-        public bool containsAll(T[] a)
-        {
-            if (a == null) return true;
-            foreach (T item in a) if (!contains(item)) return false;
-            return true;
-        }
-
-        // 10) Метод isEmpty()
-        public bool isEmpty() { return map.isEmpty(); }
-
-        // 11) Метод remove(object o)
-        public void remove(object o) { map.remove(o); }
-
-        // 12) Метод removeAll(T[] a)
-        public void removeAll(T[] a)
-        {
-            if (a == null) return;
-            foreach (T item in a) remove(item);
-        }
-
-        // 13) Метод retainAll(T[] a) - Оставить только те, что есть в массиве 'a'
+        public void add(T e) => map.put(e, PRESENT);
+        public void addAll(T[] a) { if (a != null) foreach (T e in a) add(e); }
+        public void clear() => map.clear();
+        public bool contains(object o) => map.containsKey(o);
+        public bool containsAll(T[] a) { if (a == null) return true; foreach (T e in a) if (!contains(e)) return false; return true; }
+        public bool isEmpty() => map.isEmpty();
+        public void remove(object o) => map.remove(o);
+        public void removeAll(T[] a) { if (a != null) foreach (T e in a) remove(e); }
         public void retainAll(T[] a)
         {
             if (a == null) { clear(); return; }
-            T[] currentElements = map.GetKeys();
-            foreach (T item in currentElements)
+            T[] currentKeys = map.GetKeys();
+            foreach (T key in currentKeys)
             {
                 bool found = false;
-                foreach (T other in a)
-                {
-                    if (Equals(item, other)) { found = true; break; }
-                }
-                if (!found) remove(item);
+                foreach (T other in a) if (Equals(key, other)) { found = true; break; }
+                if (!found) remove(key);
             }
         }
-
-        // 14) Метод size()
-        public int size() { return map.size(); }
-
-        // 15) Метод toArray()
+        public int size() => map.size();
         public object[] toArray()
         {
-            T[] keys = map.GetKeys();
-            object[] result = new object[keys.Length];
-            for (int i = 0; i < keys.Length; i++) result[i] = keys[i];
-            return result;
+            T[] keys = map.GetKeys(); object[] res = new object[keys.Length];
+            for (int i = 0; i < keys.Length; i++) res[i] = keys[i]; return res;
         }
-
-        // 16) Метод toArray(T[] a)
         public T[] toArray(T[] a)
         {
             T[] keys = map.GetKeys();
-            if (a == null || a.Length < keys.Length)
+            if (a == null || a.Length < keys.Length) return keys;
+            Array.Copy(keys, a, keys.Length); return a;
+        }
+    }
+
+    public class WordLengthWrapper : IComparable<WordLengthWrapper>
+    {
+        public string Text;
+        public List<int> lengths;
+
+        public WordLengthWrapper(string s)
+        {
+            Text = s;
+            lengths = new List<int>();
+            string[] words = s.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var w in words) lengths.Add(w.Length);
+            lengths.Sort();
+        }
+
+        public int CompareTo(WordLengthWrapper other)
+        {
+            int minLen = Math.Min(this.lengths.Count, other.lengths.Count);
+            for (int i = 0; i < minLen; i++)
             {
-                return keys; // Возвращаем новый массив с элементами
+                if (this.lengths[i] < other.lengths[i]) return -1;
+                if (this.lengths[i] > other.lengths[i]) return 1;
             }
-            Array.Copy(keys, a, keys.Length);
-            return a;
+            if (this.lengths.Count < other.lengths.Count) return -1;
+            if (this.lengths.Count > other.lengths.Count) return 1;
+            return 0;
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (!(obj is WordLengthWrapper other)) return false;
+            return this.CompareTo(other) == 0;
+        }
+
+        public override int GetHashCode()
+        {
+            int h = 17;
+            foreach (int l in lengths) h = h * 31 + l;
+            return h;
         }
     }
 
@@ -221,23 +162,58 @@ namespace Task25
     {
         static void Main(string[] args)
         {
+            bool exit = false;
+            while (!exit)
+            {
+                Console.Clear();
+                Console.WriteLine("Меню:");
+                Console.WriteLine("1. Задача 25");
+                Console.WriteLine("2. Задача 26");
+                Console.WriteLine("3. Задача 27");
+                Console.WriteLine("0. Выход");
+                Console.Write("\nВыбор: ");
+                string choice = Console.ReadLine();
+
+                switch (choice)
+                {
+                    case "1": RunTask25(); break;
+                    case "2": RunTask26(); break;
+                    case "3": RunTask27(); break;
+                    case "0": exit = true; break;
+                }
+                if (!exit) { Console.WriteLine("\nНажмите любую клавишу"); Console.ReadKey(); }
+            }
+        }
+
+        static void RunTask25()
+        {
             MyHashSet<string> set = new MyHashSet<string>();
-            set.add("Яблоко");
-            set.add("Банан");
-            set.add("Яблоко"); // Дубликат не добавится
+            set.add("A"); set.add("B"); set.add("A");
+            Console.WriteLine("Элементы: " + string.Join(", ", set.toArray()));
+        }
 
-            Console.WriteLine("Размер: " + set.size()); // 2
-            Console.WriteLine("Есть Банан? " + set.contains("Банан"));
+        static void RunTask26()
+        {
+            string path = "input26.txt";
+            if (!File.Exists(path)) File.WriteAllText(path, "Chevrolet Impala 1967\nDeLorean DMC-12\nBatmobile");
 
-            string[] fruits = { "Груша", "Киви" };
-            set.addAll(fruits);
-            Console.WriteLine("Размер после addAll: " + set.size());
+            MyHashSet<WordLengthWrapper> set = new MyHashSet<WordLengthWrapper>();
+            foreach (string line in File.ReadAllLines(path)) set.add(new WordLengthWrapper(line));
 
-            set.remove("Банан");
-            Console.WriteLine("Размер после удаления Банана: " + set.size());
+            WordLengthWrapper[] results = Array.ConvertAll(set.toArray(), item => (WordLengthWrapper)item);
+            Array.Sort(results);
 
-            Console.ReadKey();
+            Console.WriteLine("Отсортированные уникальные строки:");
+            foreach (var item in results) Console.WriteLine(item.Text);
+        }
+
+        static void RunTask27()
+        {
+            string path = "input27.txt";
+            if (!File.Exists(path)) File.WriteAllText(path, "Hello world hello");
+            MyHashSet<string> set = new MyHashSet<string>();
+            foreach (Match m in Regex.Matches(File.ReadAllText(path), @"[a-zA-Z]+")) set.add(m.Value.ToLower());
+            foreach (var word in set.toArray()) Console.WriteLine(word);
         }
     }
 }
-
